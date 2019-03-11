@@ -1,0 +1,2 @@
+# SPD
+SPD exercises repository
