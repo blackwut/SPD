@@ -3,13 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define N 120
+#define MAX_PRINTABLE_DIM 16
+#define N 16
 
-void fill_matrix(int * m, int rows, int cols)
+void fill_matrix(int * m, size_t dim)
 {
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            m[i * cols + j] = j;
+    for (int i = 0; i < dim; ++i) {
+        for (int j = 0; j < dim; ++j) {
+            m[i * dim + j] = j;
         }
     }
 }
@@ -19,12 +20,12 @@ int compute_value(int val)
     return val * 2 + 1;
 }
 
-void print_matrix(int * m, int rows, int cols)
+void print_matrix(int * m, size_t dim)
 {
-    if (N < 16) {
-        for (int i = 0; i < rows; ++i) {
-            for (int j = 0; j < cols; ++j) {
-                printf("%2d ", m[i * cols + j]);
+    if (dim < MAX_PRINTABLE_DIM) {
+        for (int i = 0; i < dim; ++i) {
+            for (int j = 0; j < dim; ++j) {
+                printf("%3d ", m[i * dim + j]);
             }
             printf("\n");
         }
@@ -82,13 +83,13 @@ int main(int argc, char** argv)
 
         int * m_send = (int *)malloc(N * N * sizeof(int));
         int * m_recv = (int *)malloc(N * N * sizeof(int));
-        fill_matrix(m_send, N, N);
+        fill_matrix(m_send, N);
 
         // matrix
         MPI_Send(m_send, 1, matrix, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        print_matrix(m_recv, N, N);
+        print_matrix(m_recv, N);
         // Check
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < N; ++j) {
@@ -105,7 +106,7 @@ int main(int argc, char** argv)
         MPI_Send(m_send + row_id * N, 1, row, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + row_id * N, 1, row, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        print_matrix(m_recv, N, N);
+        print_matrix(m_recv, N);
         // Check
         for (int i = 0; i < N; ++i) {
             int index = i + row_id * N;
@@ -120,7 +121,7 @@ int main(int argc, char** argv)
         MPI_Send(m_send + column_id, 1, column, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + column_id, 1, column, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        print_matrix(m_recv, N, N);
+        print_matrix(m_recv, N);
         // Check
         for (int i = 0; i < N; ++i) {
             int index = i * N + column_id;
@@ -135,7 +136,7 @@ int main(int argc, char** argv)
         MPI_Send(m_send + column_id, 1, three_columns, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + column_id, 1, three_columns, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        print_matrix(m_recv, N, N);
+        print_matrix(m_recv, N);
         // Check
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < 3; ++j) {
@@ -152,7 +153,7 @@ int main(int argc, char** argv)
         MPI_Send(m_send, 1, up_diagonal, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv, 1, up_diagonal, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        print_matrix(m_recv, N, N);
+        print_matrix(m_recv, N);
         // Check
         for (int i = 0; i < N; ++i) {
             int index = i * (N + 1);
@@ -167,7 +168,7 @@ int main(int argc, char** argv)
         MPI_Send(m_send + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        print_matrix(m_recv, N, N);
+        print_matrix(m_recv, N);
         // Check
         for (int i = 0; i < N; ++i) {
             int index = (i + 1) * (N - 1);
