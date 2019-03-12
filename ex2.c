@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define N 8
+#define N 120
 
 void fill_matrix(int * m, int rows, int cols)
 {
@@ -99,6 +99,7 @@ int main(int argc, char** argv)
                 }
             }
         }
+        printf("PingPong Matrix completed!\n");
 
         // row
         MPI_Send(m_send + row_id * N, 1, row, partner_rank, 0, MPI_COMM_WORLD);
@@ -113,6 +114,7 @@ int main(int argc, char** argv)
                 exit(-2);
             }
         }
+        printf("PingPong row completed!\n");
 
         // column
         MPI_Send(m_send + column_id, 1, column, partner_rank, 0, MPI_COMM_WORLD);
@@ -127,6 +129,7 @@ int main(int argc, char** argv)
                 exit(-3);
             }
         }
+        printf("PingPong column completed!\n");
 
         // three columns
         MPI_Send(m_send + column_id, 1, three_columns, partner_rank, 0, MPI_COMM_WORLD);
@@ -143,6 +146,7 @@ int main(int argc, char** argv)
                 }
             }
         }
+        printf("PingPong three_columns completed!\n");
 
         // up_diagonal
         MPI_Send(m_send, 1, up_diagonal, partner_rank, 0, MPI_COMM_WORLD);
@@ -157,6 +161,7 @@ int main(int argc, char** argv)
                 exit(-5);
             }
         }
+        printf("PingPong up_diagonal completed!\n");
 
         // down_diagonal
         MPI_Send(m_send + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD);
@@ -171,6 +176,7 @@ int main(int argc, char** argv)
                 exit(-5);
             }
         }
+        printf("PingPong down_diagonal completed!\n");
 
     } else {
 
