@@ -96,7 +96,7 @@ int main(int argc, char** argv)
                 int index = i * N + j;
                 if (m_recv[index] != compute_value(m_send[index])) {
                     printf("Error matrix\n");
-                    exit(-1);
+                    MPI_Abort(MPI_COMM_WORLD, 2);
                 }
             }
         }
@@ -112,7 +112,7 @@ int main(int argc, char** argv)
             int index = i + row_id * N;
             if (m_recv[index] != compute_value(m_send[index])) {
                 printf("Error row\n");
-                exit(-2);
+                MPI_Abort(MPI_COMM_WORLD, 3);
             }
         }
         printf("PingPong row completed!\n");
@@ -127,7 +127,7 @@ int main(int argc, char** argv)
             int index = i * N + column_id;
             if (m_recv[index] != compute_value(m_send[index])) {
                 printf("Error column\n");
-                exit(-3);
+                MPI_Abort(MPI_COMM_WORLD, 4);
             }
         }
         printf("PingPong column completed!\n");
@@ -143,7 +143,7 @@ int main(int argc, char** argv)
                 int index = i * N + column_id + j;
                 if (m_recv[index] != compute_value(m_send[index])) {
                     printf("Error three column\n");
-                    exit(-4);
+                    MPI_Abort(MPI_COMM_WORLD, 5);
                 }
             }
         }
@@ -159,7 +159,7 @@ int main(int argc, char** argv)
             int index = i * (N + 1);
             if (m_recv[index] != compute_value(m_send[index])) {
                 printf("Error up_diagonal\n");
-                exit(-5);
+                MPI_Abort(MPI_COMM_WORLD, 6);
             }
         }
         printf("PingPong up_diagonal completed!\n");
@@ -174,7 +174,7 @@ int main(int argc, char** argv)
             int index = (i + 1) * (N - 1);
             if (m_recv[index] != compute_value(m_send[index])) {
                 printf("Error down_diagonal\n");
-                exit(-5);
+                MPI_Abort(MPI_COMM_WORLD, 7);
             }
         }
         printf("PingPong down_diagonal completed!\n");
