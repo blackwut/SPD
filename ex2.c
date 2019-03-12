@@ -81,8 +81,8 @@ int main(int argc, char** argv)
 
     if (world_rank % 2 == 0) {
 
-        int * m_send = (int *)malloc(N * N * sizeof(int));
-        int * m_recv = (int *)malloc(N * N * sizeof(int));
+        int * m_send = (int *)calloc(N * N, sizeof(int));
+        int * m_recv = (int *)calloc(N * N, sizeof(int));
         fill_matrix(m_send, N);
 
         // matrix
@@ -181,7 +181,7 @@ int main(int argc, char** argv)
 
     } else {
 
-        int * m_recv = (int *)malloc(N * N * sizeof(int));
+        int * m_recv = (int *)calloc(N * N, sizeof(int));
 
         // matrix
         memset(m_recv, 0, N * N * sizeof(int));
