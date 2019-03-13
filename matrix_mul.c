@@ -2,10 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #define DEBUG 1
-
-#define N 16
 
 void fill_matrix_diagonal(int * m, size_t dim, int val)
 {
@@ -35,9 +34,16 @@ void print_matrix(int * m, size_t rows, size_t cols, const char * message)
     printf("\n");
 }
 
-int is_pow_of_two(int x)
+int is_square(int x)
 {
-    return !(x & (x - 1));
+    int y = 1;
+    while (y * y <= x) {
+        if (y * y == x) {
+            return 1;
+        }
+        ++y;
+    }
+    return 0;
 }
 
 int main(int argc, char** argv)
@@ -45,16 +51,39 @@ int main(int argc, char** argv)
     int world_rank;
     int world_size;
 
+    size_t N = 0;
+
+    int * A = NULL;
+    int * B = NULL;
+    int * C = NULL;
+
+    int * block_A = NULL; // rows
+    int * block_B = NULL; // columns
+    int * block_C = NULL; // block
+
+    int * rows_counts     = NULL;
+    int * rows_displays   = NULL;
+    int * cols_counts     = NULL;
+    int * cols_displays   = NULL;
+    int * blocks_counts   = NULL;
+    int * blocks_displays = NULL;
+
+    if (argc < 2) {
+        exit(-1);
+    }
+
+    N = atoi(argv[1]);
+
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
-    if (!is_pow_of_two(world_size)) {
+    if (!is_square(world_size) || N % world_size > 0) {
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 
-    size_t world_size_half = world_size / 2;
-    size_t block_dim = N / world_size_half;
+    size_t blocks_per_dim = (size_t)sqrt(world_size);
+    size_t block_dim = N / blocks_per_dim;
 
     MPI_Datatype matrix_block;
     MPI_Type_vector(block_dim, block_dim, N, MPI_INT, &matrix_block);
@@ -79,14 +108,6 @@ int main(int argc, char** argv)
     MPI_Type_create_resized(rows, 0, sizeof(int), &rows);
     MPI_Type_commit(&rows);
 
-    int * A = NULL;
-    int * B = NULL;
-    int * C = NULL;
-
-    int * block_A = NULL; // rows
-    int * block_B = NULL; // columns
-    int * block_C = NULL; // block
-
     if (world_rank == 0) {
         A = (int *)calloc(N * N, sizeof(int));
         B = (int *)calloc(N * N, sizeof(int));
@@ -94,49 +115,47 @@ int main(int argc, char** argv)
 
         fill_matrix(A, N);
         fill_matrix_diagonal(B, N, 4);
-    }
 
-#if DEBUG
-    if (world_rank == 0) {
-        print_matrix(A, N, N, "Matrix A");
-        print_matrix(B, N, N, "Matrix B");
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif
+        // counts and displays
+        rows_counts     = (int *)calloc(world_size, sizeof(int));
+        rows_displays   = (int *)calloc(world_size, sizeof(int));
 
-    // counts and displays
-    int * rows_counts = (int *)calloc(world_size, sizeof(int));
-    int * rows_displays = (int *)calloc(world_size, sizeof(int));
+        cols_counts     = (int *)calloc(world_size, sizeof(int));
+        cols_displays   = (int *)calloc(world_size, sizeof(int));
 
-    int * cols_counts = (int *)calloc(world_size, sizeof(int));
-    int * cols_displays = (int *)calloc(world_size, sizeof(int));
+        blocks_counts   = (int *)calloc(world_size, sizeof(int));
+        blocks_displays = (int *)calloc(world_size, sizeof(int));
 
-    int * blocks_counts = (int *)calloc(world_size, sizeof(int));
-    int * blocks_displays = (int *)calloc(world_size, sizeof(int));
+        for (int i = 0; i < world_size; ++i) {
+            rows_counts[i] = 1;
+            rows_displays[i] = (i / blocks_per_dim) * block_dim * N;
 
-    for (int i = 0; i < world_size; ++i) {
-        rows_counts[i] = 1;
-        rows_displays[i] = (i / 2) * block_dim * N;
+            cols_counts[i] = 1;
+            cols_displays[i] = (i / blocks_per_dim) * block_dim;
+        }
 
-        cols_counts[i] = 1;
-        cols_displays[i] = (i / 2) * block_dim;
-    }
-
-    for (int i = 0; i < world_size_half; ++i) {
-        for (int j = 0; j < world_size_half; ++j) {
-            blocks_counts[i * world_size_half + j] = 1;
-            blocks_displays[i * world_size_half + j] = j * block_dim + i * block_dim * N;
+        for (int i = 0; i < blocks_per_dim; ++i) {
+            for (int j = 0; j < blocks_per_dim; ++j) {
+                blocks_counts[i * blocks_per_dim + j] = 1;
+                blocks_displays[i * blocks_per_dim + j] = j * block_dim + i * block_dim * N;
+            }
         }
     }
 
 #if DEBUG
     if (world_rank == 0) {
+
+        printf("block_dim: %zu\nblocks_per_dim: %zu\n", block_dim, blocks_per_dim);
+
+        print_matrix(A, N, N, "Matrix A");
+        print_matrix(B, N, N, "Matrix B");
+
         // print_matrix(rows_counts, 1, world_size, "rows_counts");
         print_matrix(rows_displays, 1, world_size, "rows_displays");
         // print_matrix(cols_counts, 1, world_size, "cols_counts");
         print_matrix(cols_displays, 1, world_size, "cols_displays");
         // print_matrix(blocks_counts, 1, world_size, "blocks_counts");
-        print_matrix(blocks_displays, world_size_half, world_size_half, "blocks_displays");
+        print_matrix(blocks_displays, blocks_per_dim, blocks_per_dim, "blocks_displays");
     }
     MPI_Barrier(MPI_COMM_WORLD);
 #endif
@@ -159,16 +178,14 @@ int main(int argc, char** argv)
                 c += block_A[i * N + k] * block_B[k * block_dim + j];
             }
             block_C[i * block_dim + j] = c;
-        } 
+        }
     }
 
     MPI_Gatherv(block_C, 1, block,
                 C, blocks_counts, blocks_displays, matrix_block,
                 0, MPI_COMM_WORLD);
 
-
 #if DEBUG
-
     for (size_t i = 0; i < world_size; ++i) {
         if (world_rank == i) {
             printf("\n*** RANK %zu ***\n", i);
@@ -181,7 +198,7 @@ int main(int argc, char** argv)
 #endif
 
     if (world_rank == 0) {
-       print_matrix(C, N, N, "C");
+        print_matrix(C, N, N, "C");
     }
 
     MPI_Finalize();
