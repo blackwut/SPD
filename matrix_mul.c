@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 
-#define DEBUG 1
+#define DEBUG 0
 
 void fill_matrix_diagonal(int * m, size_t dim, int val)
 {
@@ -192,6 +192,7 @@ int main(int argc, char** argv)
             print_matrix(block_A, block_dim, N, "block_A");
             print_matrix(block_B, N, block_dim, "block_B");
             print_matrix(block_C, block_dim, block_dim, "block_C");
+            fflush(stdout);
         }
         MPI_Barrier(MPI_COMM_WORLD);
     }
