@@ -54,3 +54,4 @@ dkms.conf
 # Executables
 ex2
 matrix_mul
+farm_skeleton
