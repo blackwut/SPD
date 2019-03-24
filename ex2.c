@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define MAX_PRINTABLE_DIM 16
-#define N 120
+#define N 8
 
 void fill_matrix(int * m, size_t dim)
 {
@@ -20,6 +20,29 @@ int compute_value(int val)
     return val * 2 + 1;
 }
 
+void update_matrix(int * m, int * m_send, size_t blocklength, size_t stride)
+{
+    for (size_t i = 0; i < stride; ++i) {
+        for (size_t j = 0; j < blocklength; ++j) {
+            m_send[i * stride + j] = compute_value(m[i * stride + j]);
+        }
+    }
+}
+
+void check_matrix(int * m, int * m_recv,
+                  size_t blocklength, size_t stride,
+                  const char * message)
+{
+    for (size_t i = 0; i < stride; ++i) {
+        for (size_t j = 0; j < blocklength; ++j) {
+            if (compute_value(m[i * stride + j]) != m_recv[i * blocklength + j]) {
+                fprintf(stderr, "Error: %s\n", message);
+                MPI_Abort(MPI_COMM_WORLD, 2);
+            }
+        }
+    }
+}
+
 void print_matrix(int * m, size_t dim)
 {
     if (dim < MAX_PRINTABLE_DIM) {
@@ -29,7 +52,6 @@ void print_matrix(int * m, size_t dim)
             }
             printf("\n");
         }
-        printf("\n");
     }
 }
 
@@ -43,6 +65,7 @@ int main(int argc, char** argv)
     int * m_recv;
     size_t row_id;
     size_t column_id;
+    size_t columns = 3;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
@@ -54,7 +77,7 @@ int main(int argc, char** argv)
     }
 
     partner_rank = (world_rank + 1) % 2;
-    printf("rank: %d\npartner_rank: %zu\n", world_rank, partner_rank);
+    printf("rank: %d\tpartner_rank: %zu\n", world_rank, partner_rank);
 
     MPI_Datatype matrix;
     MPI_Type_contiguous(N * N, MPI_INT, &matrix);
@@ -69,7 +92,7 @@ int main(int argc, char** argv)
     MPI_Type_commit(&column);
 
     MPI_Datatype three_columns;
-    MPI_Type_vector(N, 3, N, MPI_INT, &three_columns);
+    MPI_Type_vector(N, columns, N, MPI_INT, &three_columns);
     MPI_Type_commit(&three_columns);
 
     MPI_Datatype up_diagonal;
@@ -95,93 +118,47 @@ int main(int argc, char** argv)
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         print_matrix(m_recv, N);
-        // Check
-        for (size_t i = 0; i < N; ++i) {
-            for (size_t j = 0; j < N; ++j) {
-                size_t index = i * N + j;
-                if (m_recv[index] != compute_value(m_send[index])) {
-                    printf("Error matrix\n");
-                    MPI_Abort(MPI_COMM_WORLD, 2);
-                }
-            }
-        }
-        printf("PingPong Matrix completed!\n");
+        check_matrix(m_send, m_recv, N, N, "matrix");
+        printf("PingPong Matrix completed!\n\n");
 
         // row
         MPI_Send(m_send + row_id * N, 1, row, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
-        MPI_Recv(m_recv + row_id * N, 1, row, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(m_recv, 1, row, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         print_matrix(m_recv, N);
-        // Check
-        for (size_t i = 0; i < N; ++i) {
-            size_t index = i + row_id * N;
-            if (m_recv[index] != compute_value(m_send[index])) {
-                printf("Error row\n");
-                MPI_Abort(MPI_COMM_WORLD, 3);
-            }
-        }
+        check_matrix(m_send + row_id * N, m_recv, N, 1, "row");
         printf("PingPong row completed!\n");
 
         // column
         MPI_Send(m_send + column_id, 1, column, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
-        MPI_Recv(m_recv + column_id, 1, column, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(m_recv, 1, row, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         print_matrix(m_recv, N);
-        // Check
-        for (size_t i = 0; i < N; ++i) {
-            size_t index = i * N + column_id;
-            if (m_recv[index] != compute_value(m_send[index])) {
-                printf("Error column\n");
-                MPI_Abort(MPI_COMM_WORLD, 4);
-            }
-        }
+        check_matrix(m_send + column_id, m_recv, 1, N, "column");
         printf("PingPong column completed!\n");
 
         // three columns
         MPI_Send(m_send + column_id, 1, three_columns, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
-        MPI_Recv(m_recv + column_id, 1, three_columns, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(m_recv, 3, row, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         print_matrix(m_recv, N);
-        // Check
-        for (size_t i = 0; i < N; ++i) {
-            for (size_t j = 0; j < 3; ++j) {
-                size_t index = i * N + column_id + j;
-                if (m_recv[index] != compute_value(m_send[index])) {
-                    printf("Error three column\n");
-                    MPI_Abort(MPI_COMM_WORLD, 5);
-                }
-            }
-        }
+        check_matrix(m_send + column_id, m_recv, columns, N, "three_columns");
         printf("PingPong three_columns completed!\n");
 
         // up_diagonal
         MPI_Send(m_send, 1, up_diagonal, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
-        MPI_Recv(m_recv, 1, up_diagonal, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(m_recv, 1, row, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         print_matrix(m_recv, N);
-        // Check
-        for (size_t i = 0; i < N; ++i) {
-            size_t index = i * (N + 1);
-            if (m_recv[index] != compute_value(m_send[index])) {
-                printf("Error up_diagonal\n");
-                MPI_Abort(MPI_COMM_WORLD, 6);
-            }
-        }
+        check_matrix(m_send, m_recv, 0, N + 1, "up_diagonal");
         printf("PingPong up_diagonal completed!\n");
 
         // down_diagonal
         MPI_Send(m_send + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD);
         memset(m_recv, 0, N * N * sizeof(int));
-        MPI_Recv(m_recv + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(m_recv, 1, row, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         print_matrix(m_recv, N);
-        // Check
-        for (size_t i = 0; i < N; ++i) {
-            size_t index = (i + 1) * (N - 1);
-            if (m_recv[index] != compute_value(m_send[index])) {
-                printf("Error down_diagonal\n");
-                MPI_Abort(MPI_COMM_WORLD, 7);
-            }
-        }
+        check_matrix(m_send + N - 1, m_recv, 0, N - 1, "down_diagonal");
         printf("PingPong down_diagonal completed!\n");
 
     } else {
@@ -191,61 +168,46 @@ int main(int argc, char** argv)
         // matrix
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        for (size_t i = 0; i < N; ++i) {
-            for (size_t j = 0; j < N; ++j) {
-                size_t index = i * N + j;
-                m_send[index] = compute_value(m_recv[index]);
-            }
-        }
+        update_matrix(m_recv, m_send, N, N);
         MPI_Send(m_send, 1, matrix, partner_rank, 0, MPI_COMM_WORLD);
 
         // row
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + row_id * N, 1, row, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        for (size_t i = 0; i < N; ++i) {
-            size_t index = i + row_id * N;
-            m_send[index] = compute_value(m_recv[index]);
-        }
+        update_matrix(m_recv + row_id * N, m_send + row_id * N, N, 1);
         MPI_Send(m_send + row_id * N, 1, row, partner_rank, 0, MPI_COMM_WORLD);
 
         // column
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + column_id, 1, column, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        for (size_t i = 0; i < N; ++i) {
-            size_t index = i * N + column_id;
-            m_send[index] = compute_value(m_recv[index]);
-        }
+        update_matrix(m_recv + column_id, m_send + column_id, 1, N);
         MPI_Send(m_send + column_id, 1, column, partner_rank, 0, MPI_COMM_WORLD);
 
         // three column
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + column_id, 1, three_columns, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        for (size_t i = 0; i < N; ++i) {
-            for (size_t j = 0; j < 3; ++j) {
-                size_t index = i * N + column_id + j;
-                m_send[index] = compute_value(m_recv[index]);
-            }
-        }
+        update_matrix(m_recv + column_id, m_send + column_id, columns, N);
         MPI_Send(m_send + column_id, 1, three_columns, partner_rank, 0, MPI_COMM_WORLD);
 
         // up_diagonal
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv, 1, up_diagonal, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        for (size_t i = 0; i < N; ++i) {
-            size_t index = i * (N + 1);
-            m_send[index] = compute_value(m_recv[index]);
-        }
+        update_matrix(m_recv, m_send, 1, N + 1);
         MPI_Send(m_send, 1, up_diagonal, partner_rank, 0, MPI_COMM_WORLD);
 
         // down_diagonal
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        for (size_t i = 0; i < N; ++i) {
-            size_t index = (i + 1) * (N - 1);
-            m_send[index] = compute_value(m_recv[index]);
-        }
+        update_matrix(m_recv, m_send, 1, N - 1);
         MPI_Send(m_send + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD);
     }
+
+    MPI_Type_free(&matrix);
+    MPI_Type_free(&row);
+    MPI_Type_free(&column);
+    MPI_Type_free(&three_columns);
+    MPI_Type_free(&up_diagonal);
+    MPI_Type_free(&down_diagonal);
 
     MPI_Finalize();
 
