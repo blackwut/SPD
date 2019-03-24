@@ -202,6 +202,12 @@ int main(int argc, char** argv)
         print_matrix(C, N, N, "C");
     }
 
+    MPI_Type_free(&matrix_block);
+    MPI_Type_free(&block);
+    MPI_Type_free(&partition);
+    MPI_Type_free(&columns);
+    MPI_Type_free(&rows);
+
     MPI_Finalize();
 
     return 0;
