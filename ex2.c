@@ -55,7 +55,7 @@ void print_matrix(int * m, size_t dim)
     }
 }
 
-int main(int argc, char** argv)
+int main(int argc, char * argv[])
 {
     int world_rank;
     int world_size;
