@@ -73,28 +73,15 @@ void stream_compute(void * out, const void * in)
 
 void stream_sleep_compute(void * out, const void * in)
 {
-    static int seeded = 0;
-    if (seeded == 0) {
-        srand(time(NULL));
-        seeded = 1;
-    }
-
     stream_compute(out, in);
-
     sleep(1);
 }
 
 void stream_random_sleep_compute(void * out, const void * in)
 {
-    static int seeded = 0;
-    if (seeded == 0) {
-        srand((unsigned int)out);
-        seeded = 1;
-    }
-
     stream_compute(out, in);
 
-    int sleep_time = rand() / (float)RAND_MAX * 2000000;
+    int sleep_time = arc4random_uniform(2000000);
     usleep(sleep_time);
 }
 
@@ -277,10 +264,13 @@ void farm_skeleton(streamGenerateFun stream_generate,
     double end_time = MPI_Wtime();
 
     printf("Farm took %f seconds\n", end_time - start_time);
+
+    MPI_Comm_free(&comm_e2w);
+    MPI_Comm_free(&comm_w2c);
 }
 
 
-int main(int argc, char** argv)
+int main(int argc, char * argv[])
 {
 
     int compute_type = 0;
@@ -328,6 +318,7 @@ int main(int argc, char** argv)
                   n, MPI_COMM_WORLD);
 
     MPI_Type_free(&in_datatype);
+    MPI_Type_free(&out_datatype);
 
     MPI_Finalize();
 
