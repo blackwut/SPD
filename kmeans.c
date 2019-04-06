@@ -327,6 +327,10 @@ void kmeans(char * filename, size_t d, size_t n, size_t k, size_t iterations, MP
     int size;
     MPI_Comm c;
 
+    MPI_Comm_dup(comm, &c);
+    MPI_Comm_rank(c, &rank);
+    MPI_Comm_size(c, &size);
+
     size_t it_count = 0;
     DataRow * dataset = NULL;
     char * dataset_raw = NULL;
@@ -341,10 +345,6 @@ void kmeans(char * filename, size_t d, size_t n, size_t k, size_t iterations, MP
     int centroids_data_count = 0;
     int * centroids_hits = NULL;
     int centroids_hits_count = 0;
-
-    MPI_Comm_dup(comm, &c);
-    MPI_Comm_rank(c, &rank);
-    MPI_Comm_size(c, &size);
 
     // Data structures of MPI_Scatterv
     const int dataRowSize = data_row_size(d);
@@ -416,7 +416,7 @@ void kmeans(char * filename, size_t d, size_t n, size_t k, size_t iterations, MP
         print_debug_centroids_data("CLEAR", centroids_data, centroids_hits, d, k, c);
 
         for (size_t i = 0; i < dataset_count_local; ++i) {
-            DataRow * point = &dataset[i];
+            DataRow * point = dataset + i;
 
             compute_minimum_distance(point, centroids, d, k, c);
             const int closest = point->centroid;
@@ -433,7 +433,6 @@ void kmeans(char * filename, size_t d, size_t n, size_t k, size_t iterations, MP
         update_centroids(centroids, centroids_data, centroids_hits, d, k);
         print_debug_centroids_data("UPDATE", centroids_data, centroids_hits, d, k, c);
 
-
         it_count++;
     } while (MSE_new < MSE_old && it_count < iterations);
 
@@ -442,19 +441,14 @@ void kmeans(char * filename, size_t d, size_t n, size_t k, size_t iterations, MP
         write_centroids("Final result", centroids, d, k, it_count);
     }
 
-    // MPI_Barrier(c);
+    print_debug("FREE", c);
 
-    // printf("rank %d\n", rank);
-
-    // MPI_Barrier(c);
-
-    // MPI_Comm_free(&c);
     if (counts) free(counts);
     if (displays) free(displays);
-    if (dataset) data_row_free(dataset, n); // free EXC_BAD_ACCESS
-    if (dataset_raw) free(dataset_raw);
-    if (centroids) data_row_free(centroids, k);
-    if (centroids_raw) free(centroids_raw);
+    if (dataset) data_row_free(dataset, dataset_count);
+    if (dataset_raw) data_row_free_raw(dataset_raw);
+    if (centroids) data_row_free(centroids, centroids_count);
+    if (centroids_raw) data_row_free_raw(centroids_raw);
     if (centroids_data) free(centroids_data);
     if (centroids_hits) free(centroids_hits);
 }
