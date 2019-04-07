@@ -401,11 +401,10 @@ void kmeans(char * filename, size_t d, size_t n, size_t k, size_t iterations, MP
 
     double MSE_new = DBL_MAX;
     double MSE_old;
-    double MSE_local;
 
     do {
         MSE_old = MSE_new;
-        MSE_local = 0.0;
+        MSE_new = 0.0;
 
         if (rank == 0) {
             write_centroids("Iteration", centroids, d, k, it_count);
@@ -422,12 +421,12 @@ void kmeans(char * filename, size_t d, size_t n, size_t k, size_t iterations, MP
             const int closest = point->centroid;
             sum_data(centroids_data + (closest * d), point->data, d);
             centroids_hits[closest] += 1;
-            MSE_local += point->distance * point->distance;
+            MSE_new += point->distance * point->distance;
         }
 
         MPI_Allreduce(MPI_IN_PLACE, centroids_data, centroids_data_count, MPI_DOUBLE, MPI_SUM, c);
-        MPI_Allreduce(MPI_IN_PLACE, centroids_hits, centroids_hits_count, MPI_DOUBLE, MPI_SUM, c);
-        MPI_Allreduce(&MSE_local, &MSE_new, 1, MPI_DOUBLE, MPI_SUM, c);
+        MPI_Allreduce(MPI_IN_PLACE, centroids_hits, centroids_hits_count, MPI_INT, MPI_SUM, c);
+        MPI_Allreduce(MPI_IN_PLACE, &MSE_new, 1, MPI_DOUBLE, MPI_SUM, c);
 
         print_debug_centroids_data("REDUCE", centroids_data, centroids_hits, d, k, c);
         update_centroids(centroids, centroids_data, centroids_hits, d, k);
