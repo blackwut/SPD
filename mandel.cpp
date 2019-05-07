@@ -3,15 +3,21 @@
 #include <string>
 #include <algorithm>
 #include <assert.h>
+#include <cmath>
 #include "tbb/tbb.h"
 
 using namespace tbb;
 using namespace std;
 
-#define DEFAULT_X -2.0
-#define DEFAULT_Y -2.0
-#define DEFAULT_ITERATIONS 1024
-#define MAX_SMODULUS 4
+#define REAL_START              -2.0
+#define REAL_END                 1.0
+#define IMAG_START              -1.0
+#define IMAG_END                 1.0
+#define REAL_SCALE(x)           (REAL_START + (x) * (REAL_END - REAL_START))
+#define IMAG_SCALE(x)           (IMAG_START + (x) * (IMAG_END - IMAG_START))
+
+#define DEFAULT_ITERATIONS      64
+#define MAX_SMODULUS             4.0
 
 
 class Mandel {
@@ -20,17 +26,16 @@ class Mandel {
     int * output;
 
 public:
-    void operator()(const blocked_range2d<size_t> & r) const
-    {
-        const size_t c = cols;
-        const size_t f = (rows > cols ? rows : cols) / 4;
+    void operator()(const blocked_range2d<size_t> & r) const {
+        const size_t rs = rows;
+        const size_t cs = cols;
         int * out = output;
 
         for (size_t i = r.rows().begin(); i != r.rows().end(); ++i) {
             for (size_t j = r.cols().begin(); j != r.cols().end(); ++j) {
-                const double cx = (double)j / f + DEFAULT_X;
-                const double cy = (double)i / f + DEFAULT_Y;
-                out[i * c + j] = mand_compute(cx, cy);
+                const double cx = REAL_SCALE((double)j / cs);
+                const double cy = IMAG_SCALE((double)i / rs);
+                out[i * cs + j] = mand_compute(cx, cy);
             }
         }
     }
@@ -50,20 +55,18 @@ public:
 
 private:
     //returns the number of iteration until divergence of a single point
-    int mand_compute(double cx, double cy) const
-    {
+    int mand_compute(double cx, double cy) const {
         int i;
         double x = cx;
         double y = cy;
         double nx;
         double ny;
 
-        for (i = 0; i < DEFAULT_ITERATIONS; ++i) {
-            // (x, y)^2 + c
+        for (i = 1; i < DEFAULT_ITERATIONS; ++i) {
             nx = x * x - y * y + cx;
             ny = 2 * x * y + cy;
 
-            if (nx * nx + ny * ny > MAX_SMODULUS) {
+            if (fabs(nx * nx + ny * ny) > MAX_SMODULUS) {
                 break;
             }
             x = nx;
@@ -127,15 +130,40 @@ int max_array(const int * array, const size_t size)
 
 int main(int argc, char * argv[])
 {
-    size_t rows = 1 << 12;
-    size_t cols = 1 << 13;
+    argc--;
+    argv++;
+    size_t rows = 1 << 10;
+    size_t cols = 1 << 10;
+    size_t threads = 1;
 
+    if (argc > 0) rows    = 1 << strtol(argv[0], NULL, 10);
+    if (argc > 1) cols    = 1 << strtol(argv[1], NULL, 10);
+    if (argc > 2) threads = strtol(argv[2], NULL, 10);
+
+    rows *= 2;
+    cols *= 3;
+
+    std::cout << "   rows: " << rows    << std::endl;
+    std::cout << "   cols: " << cols    << std::endl;
+    std::cout << "threads: " << threads << std::endl;
+
+    // Preparing paralle computation
     int * output = new int[rows * cols];
-
     Mandel m(output, rows, cols);
+
+    // Executing parallel computation
+    tbb::task_scheduler_init init(threads);
+    tbb::tick_count time_start = tbb::tick_count::now();
     parallel_for(blocked_range2d<size_t>(0, rows, 0, cols), m);
+    tbb::tick_count time_stop = tbb::tick_count::now();
+
+    double time_s = (time_stop - time_start).seconds();
+    std::cout << " timing: " << time_s << " s" << std::endl;
+
     int max_value = max_array(output, rows * cols);
     save_image("/Volumes/RamDisk/mandel.ppm", output, cols, rows, max_value);
+
+    delete[] output;
 
     return 0;
 }
