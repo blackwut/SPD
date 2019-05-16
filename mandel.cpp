@@ -1,5 +1,4 @@
 #include <iostream>
-#include <fstream>
 #include <string>
 #include <algorithm>
 #include <assert.h>
@@ -9,21 +8,22 @@
 using namespace tbb;
 using namespace std;
 
-#define REAL_START              -2.0
-#define REAL_END                 1.0
-#define IMAG_START              -1.0
-#define IMAG_END                 1.0
-#define REAL_SCALE(x)           (REAL_START + (x) * (REAL_END - REAL_START))
-#define IMAG_SCALE(x)           (IMAG_START + (x) * (IMAG_END - IMAG_START))
+static double REAL_START = -2.0;
+static double REAL_END   =  1.0;
+static double IMAG_START = -1.0;
+static double IMAG_END   =  1.0;
 
-#define DEFAULT_ITERATIONS      64
-#define MAX_SMODULUS             4.0
+#define REAL_SCALE(x)       (REAL_START + (x) * (REAL_END - REAL_START))
+#define IMAG_SCALE(x)       (IMAG_START + (x) * (IMAG_END - IMAG_START))
+
+#define DEFAULT_ITERATIONS  512
+#define MAX_SMODULUS        4.0
 
 
 class Mandel {
+    int * output;
     const size_t rows;
     const size_t cols;
-    int * output;
 
 public:
     void operator()(const blocked_range2d<size_t> & r) const {
@@ -44,13 +44,8 @@ public:
     : output(output), rows(rows), cols(cols)
     {}
 
-    void print() {
-        for (size_t i = 0; i < rows; ++i) {
-            for (size_t j = 0; j < cols; ++j) {
-                std::cout << output[i] << " ";
-            }
-            std::cout << std::endl;
-        }
+    ~Mandel() {
+        std::cout << "finish" << std::endl;
     }
 
 private:
@@ -66,7 +61,7 @@ private:
             nx = x * x - y * y + cx;
             ny = 2 * x * y + cy;
 
-            if (fabs(nx * nx + ny * ny) > MAX_SMODULUS) {
+            if (nx * nx + ny * ny > MAX_SMODULUS) {
                 break;
             }
             x = nx;
@@ -101,13 +96,10 @@ int save_image(const char * filename,
     fprintf(fp, "P6\n%zu %zu\n255\n", rows, cols);
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
-            int val = matrix[i * cols + j];
-            if (max_value != 255) {
-                val = (val * 255) / max_value;
-            }
+            const int val = matrix[i * cols + j];
             static unsigned char color[3];
-            color[0] = val % 256;
-            color[1] = 0;
+            color[0] = (max_value != 255 ? val / max_value * 255 : val);
+            color[1] = val % 256;
             color[2] = 0;
             fwrite(color, 1, 3, fp);
         }
@@ -136,18 +128,21 @@ int main(int argc, char * argv[])
     size_t cols = 1 << 10;
     size_t threads = 1;
 
-    if (argc > 0) rows    = 1 << strtol(argv[0], NULL, 10);
-    if (argc > 1) cols    = 1 << strtol(argv[1], NULL, 10);
-    if (argc > 2) threads = strtol(argv[2], NULL, 10);
+    if (argc > 0) rows       = strtol(argv[0], NULL, 10);
+    if (argc > 1) cols       = strtol(argv[1], NULL, 10);
+    if (argc > 2) REAL_START = strtod(argv[2], NULL);
+    if (argc > 3) REAL_END   = strtod(argv[3], NULL);
+    if (argc > 4) IMAG_START = strtod(argv[4], NULL);
+    if (argc > 5) IMAG_END   = strtod(argv[5], NULL);
+    if (argc > 6) threads    = strtol(argv[6], NULL, 10);
 
-    rows *= 2;
-    cols *= 3;
+    std::cout << "   rows: "  << rows       << std::endl;
+    std::cout << "   cols: "  << cols       << std::endl;
+    std::cout << "   REAL: [" << REAL_START << ", "<< REAL_END << "]" << std::endl;
+    std::cout << "   IMAG: [" << IMAG_START << ", "<< IMAG_END << "]" << std::endl;
+    std::cout << "threads: "  << threads    << std::endl;
 
-    std::cout << "   rows: " << rows    << std::endl;
-    std::cout << "   cols: " << cols    << std::endl;
-    std::cout << "threads: " << threads << std::endl;
-
-    // Preparing paralle computation
+    // Preparing parallel computation
     int * output = new int[rows * cols];
     Mandel m(output, rows, cols);
 
