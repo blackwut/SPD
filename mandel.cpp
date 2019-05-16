@@ -44,10 +44,6 @@ public:
     : output(output), rows(rows), cols(cols)
     {}
 
-    ~Mandel() {
-        std::cout << "finish" << std::endl;
-    }
-
 private:
     //returns the number of iteration until divergence of a single point
     int mand_compute(double cx, double cy) const {
@@ -124,9 +120,9 @@ int main(int argc, char * argv[])
 {
     argc--;
     argv++;
-    size_t rows = 1 << 10;
-    size_t cols = 1 << 10;
-    size_t threads = 1;
+    size_t rows = (1 << 10) * 2;
+    size_t cols = (1 << 10) * 3;
+    size_t threads = 4;
 
     if (argc > 0) rows       = strtol(argv[0], NULL, 10);
     if (argc > 1) cols       = strtol(argv[1], NULL, 10);
