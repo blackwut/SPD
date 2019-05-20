@@ -2,7 +2,32 @@
 
 SPD exercises repository
 
-## How to run exercises
+## How to run exercises with Makefile
+
+With make file you can run all the exercises simpli append "_run" to the chosen target.
+Targets are: "matrix_mul", "farm_skeleton", "kmeans", "mandel".
+For example:
+```bash
+make farm_skeleton_run
+```
+The result will be:
+```bash
+mpicc matrix_mul.c -o matrix_mul
+mpirun --oversubscribe -np 9 matrix_mul 9
+C
+   4    8   12    4    8   12    4    8   12 
+  40   44   48   40   44   48   40   44   48 
+  76   80   84   76   80   84   76   80   84 
+ 124  128  132  124  128  132  124  128  132 
+ 160  164  168  160  164  168  160  164  168 
+ 196  200  204  196  200  204  196  200  204 
+ 244  248  252  244  248  252  244  248  252 
+ 280  284  288  280  284  288  280  284  288 
+ 316  320  324  316  320  324  316  320  324 
+```
+
+
+## And without Makefile
 
 ### ex2.c
 
@@ -20,5 +45,10 @@ mpicc matrix_mul.c -o matrix_mul && mpirun --oversubscribe -np P matrix_mul N
 
 ### mandel.cpp
 ```bash
-g++ -std=c++11 mandel.cpp -o mandel -ltbb && ./mandel 2048 3072 -2.0 1.0 -1.0 1.0  4
+g++ -std=c++11 mandel.cpp -o mandel -ltbb && ./mandel 1024 1024 -1.1 -0.9 0.15 0.35 8
 ```
+
+
+
+
+
