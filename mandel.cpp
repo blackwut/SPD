@@ -170,6 +170,13 @@ int main(int argc, char * argv[])
     size_t rows = (1 << 10) * 2;
     size_t cols = (1 << 10) * 3;
     size_t threads = 4;
+    ssize_t row_grain = 0;
+    ssize_t col_grain = 0;
+
+    if (argc < 7) {
+        std::cerr << "usage: ./mandel rows cols real_start real_end imag_start imag_end threads [row_grain col_grain]" << std::endl;
+        exit(-1);
+    }
 
     if (argc > 0) rows       = strtol(argv[0], NULL, 10);
     if (argc > 1) cols       = strtol(argv[1], NULL, 10);
@@ -178,32 +185,46 @@ int main(int argc, char * argv[])
     if (argc > 4) IMAG_START = strtod(argv[4], NULL);
     if (argc > 5) IMAG_END   = strtod(argv[5], NULL);
     if (argc > 6) threads    = strtol(argv[6], NULL, 10);
+    if (argc > 8) row_grain  = strtol(argv[7], NULL, 10); // (argc > 8) means that both row_grain and col_grain are specified
+    if (argc > 8) col_grain  = strtol(argv[8], NULL, 10);
 
-    std::cout << "   rows: "  << rows       << std::endl;
-    std::cout << "   cols: "  << cols       << std::endl;
-    std::cout << "   REAL: [" << REAL_START << ", "<< REAL_END << "]" << std::endl;
-    std::cout << "   IMAG: [" << IMAG_START << ", "<< IMAG_END << "]" << std::endl;
-    std::cout << "threads: "  << threads    << std::endl;
+
+    assert(rows > 0);
+    assert(cols > 0);
+    assert(threads > 0);
+    assert(row_grain >= 0);
+    assert(col_grain >= 0);
+
+    std::cout << "     rows: "  << rows       << std::endl;
+    std::cout << "     cols: "  << cols       << std::endl;
+    std::cout << "     REAL: [" << REAL_START << ", "<< REAL_END << "]" << std::endl;
+    std::cout << "     IMAG: [" << IMAG_START << ", "<< IMAG_END << "]" << std::endl;
+    std::cout << "  threads: "  << threads    << std::endl;
+    if (row_grain > 0) std::cout << "row_grain: " << row_grain << std::endl;
+    if (col_grain > 0) std::cout << "col_grain: " << col_grain << std::endl;
 
     // Preparing parallel computation
+    // Data structures
     std::vector<size_t> out(rows * cols);
     tbb::concurrent_vector<Stats> q;
     Mandel m(out, q, rows, cols);
 
-    // Settings the number of threads to be used
+    // Settings the number of threads
     tbb::task_scheduler_init init(threads);
-    
-    // Parallel computation
-    // size_t row_grain = 512;
-    // size_t col_grain = 512;
-    // tbb::tick_count time_start = tbb::tick_count::now();
-    // parallel_for(tbb::blocked_range2d<size_t>(0, rows, row_grain, 0, cols, col_grain), m);
-    // tbb::tick_count time_stop = tbb::tick_count::now();
+
+    // Grain sizes
+    tbb::blocked_range2d<size_t> range = tbb::blocked_range2d<size_t>(0, rows, 0, cols);
+    if (row_grain > 0 && col_grain > 0) {
+        range = tbb::blocked_range2d<size_t>(0, rows, row_grain, 0, cols, col_grain);
+    }
+
+    // Computation
     tbb::tick_count time_start = tbb::tick_count::now();
-    parallel_for(tbb::blocked_range2d<size_t>(0, rows, 0, cols), m);
+    parallel_for(range, m);
     tbb::tick_count time_stop = tbb::tick_count::now();
 
 
+    // Statistics
     size_t w_range = 4;
     size_t width = 24;
     std::cout << std::setw(width) << "Range";
