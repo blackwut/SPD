@@ -8,15 +8,14 @@
 #include "tbb/tbb.h"
 
 
-static double REAL_START = -2.0;
+static double REAL_BEGIN = -2.0;
 static double REAL_END   =  1.0;
-static double IMAG_START = -1.0;
+static double IMAG_BEGIN = -1.0;
 static double IMAG_END   =  1.0;
 
-#define REAL_SCALE(x)       (REAL_START + (x) * (REAL_END - REAL_START))
-#define IMAG_SCALE(x)       (IMAG_START + (x) * (IMAG_END - IMAG_START))
-//#define IMAG_SCALE(x)       (IMAG_END + (x) * (IMAG_START - IMAG_END))
-
+#define REAL_SCALE(x)       (REAL_BEGIN + (x) * (REAL_END - REAL_BEGIN))
+#define IMAG_SCALE(x)       (IMAG_BEGIN + (x) * (IMAG_END - IMAG_BEGIN))
+//#define IMAG_SCALE(x)       (IMAG_END + (x) * (IMAG_BEGIN - IMAG_END))
 
 #define MAX_ITERATIONS      1024
 #define MAX_SMODULUS        4.0
@@ -165,28 +164,39 @@ double weighted_average(std::vector<size_t> & v)
 
 int main(int argc, char * argv[])
 {
-    argc--;
-    argv++;
-    size_t rows = (1 << 10) * 2;
-    size_t cols = (1 << 10) * 3;
-    size_t threads = 4;
+    char * filename = NULL;
+    // to avoid overflow when user specifies negative values is used ssize_t == signed size_t
+    ssize_t rows = (1 << 10) * 2;
+    ssize_t cols = (1 << 10) * 3;
+    ssize_t threads = 4;
     ssize_t row_grain = 0;
     ssize_t col_grain = 0;
 
-    if (argc < 7) {
-        std::cerr << "usage: ./mandel rows cols real_start real_end imag_start imag_end threads [row_grain col_grain]" << std::endl;
+    if (argc < 2) {
+        std::cerr << "usage: ./mandel filename.ppm [rows cols] [real_start real_end imag_start imag_end] [threads] [row_grain col_grain]" << std::endl;
         exit(-1);
     }
 
-    if (argc > 0) rows       = strtol(argv[0], NULL, 10);
-    if (argc > 1) cols       = strtol(argv[1], NULL, 10);
-    if (argc > 2) REAL_START = strtod(argv[2], NULL);
-    if (argc > 3) REAL_END   = strtod(argv[3], NULL);
-    if (argc > 4) IMAG_START = strtod(argv[4], NULL);
-    if (argc > 5) IMAG_END   = strtod(argv[5], NULL);
-    if (argc > 6) threads    = strtol(argv[6], NULL, 10);
-    if (argc > 8) row_grain  = strtol(argv[7], NULL, 10); // (argc > 8) means that both row_grain and col_grain are specified
-    if (argc > 8) col_grain  = strtol(argv[8], NULL, 10);
+    argc--;
+    argv++;
+    size_t argi = 0;
+    if (argc > 0) filename   = argv[argi++];
+    
+    // (argc > 2) to take both rows and cols
+    if (argc > 2) rows       = strtol(argv[argi++], NULL, 10);
+    if (argc > 2) cols       = strtol(argv[argi++], NULL, 10);
+    
+    // (argc > 6) to take both starts and ends values of REAL and IMAG ranges
+    if (argc > 6) REAL_BEGIN = strtod(argv[argi++], NULL);
+    if (argc > 6) REAL_END   = strtod(argv[argi++], NULL);
+    if (argc > 6) IMAG_BEGIN = strtod(argv[argi++], NULL);
+    if (argc > 6) IMAG_END   = strtod(argv[argi++], NULL);
+
+    if (argc > 7) threads    = strtol(argv[argi++], NULL, 10);
+
+    // (argc > 9) to take row and col grain sizes
+    if (argc > 9) row_grain  = strtol(argv[argi++], NULL, 10); 
+    if (argc > 9) col_grain  = strtol(argv[argi++], NULL, 10);
 
 
     assert(rows > 0);
@@ -197,8 +207,8 @@ int main(int argc, char * argv[])
 
     std::cout << "     rows: "  << rows       << std::endl;
     std::cout << "     cols: "  << cols       << std::endl;
-    std::cout << "     REAL: [" << REAL_START << ", "<< REAL_END << "]" << std::endl;
-    std::cout << "     IMAG: [" << IMAG_START << ", "<< IMAG_END << "]" << std::endl;
+    std::cout << "     REAL: [" << REAL_BEGIN << ", "<< REAL_END << "]" << std::endl;
+    std::cout << "     IMAG: [" << IMAG_BEGIN << ", "<< IMAG_END << "]" << std::endl;
     std::cout << "  threads: "  << threads    << std::endl;
     if (row_grain > 0) std::cout << "row_grain: " << row_grain << std::endl;
     if (col_grain > 0) std::cout << "col_grain: " << col_grain << std::endl;
@@ -262,7 +272,7 @@ int main(int argc, char * argv[])
     std::cout << " timing: " << time_s << " s" << std::endl;
 
     size_t max_value = max_array(out, rows * cols);
-    save_image("/Volumes/RamDisk/mandel.ppm", out, cols, rows, max_value);
+    save_image(filename, out, cols, rows, max_value);
 
     return 0;
 }
