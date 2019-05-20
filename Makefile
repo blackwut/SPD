@@ -25,7 +25,7 @@ $(FARM)_run: $(FARM)
 	$(MPIRUN) --oversubscribe -np 8 $< 10
 
 $(KMEANS)_run: $(KMEANS)
-	$(MPIRUN) --oversubscribe -np 3 $< 2 1000 5 10 < ./kmeans.data
+	$(MPIRUN) --oversubscribe -np 3 $< ./kmeans.data 2 1000 5 10
 
 $(MANDEL)_run: $(MANDEL)
 	./$< 1024 1024 -1.1 -0.9 0.15 0.35 8
