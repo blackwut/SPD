@@ -4,8 +4,9 @@
 #include <string.h>
 
 #define MAX_PRINTABLE_DIM      (16)
-#define N                 8//(1 << 14) // 16384 x 16384 = 268435456 ~ 2GB in total
-#define SEND_RECEIVE            (0)
+#define N                       (8)
+//#define N                 (1 << 14) // 16384 x 16384 = 268435456 ~ 2GB in total
+#define SEND_RECEIVE            (1)
 
 
 void fill_matrix(int * m, size_t dim)
@@ -293,47 +294,79 @@ int main(int argc, char * argv[])
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         update_matrix(m_recv, m_send, N, N, N);
+#if SEND_RECEIVE
+        MPI_Rsend(m_send, 1, matrix, partner_rank, 0, MPI_COMM_WORLD);
+#else
         MPI_Send(m_send, 1, matrix, partner_rank, 0, MPI_COMM_WORLD);
+#endif
 
         // row
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + row_id * N, 1, row, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         update_matrix(m_recv + row_id * N, m_send + row_id * N, 1, N, 1);
+#if SEND_RECEIVE
+        MPI_Rsend(m_send + row_id * N, 1, row, partner_rank, 0, MPI_COMM_WORLD);
+#else
         MPI_Send(m_send + row_id * N, 1, row, partner_rank, 0, MPI_COMM_WORLD);
+#endif
 
         // column
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + column_id, 1, column, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         update_matrix(m_recv + column_id, m_send + column_id, 1, 1, N);
+#if SEND_RECEIVE
+        MPI_Rsend(m_send + column_id, 1, column, partner_rank, 0, MPI_COMM_WORLD);
+#else
         MPI_Send(m_send + column_id, 1, column, partner_rank, 0, MPI_COMM_WORLD);
+#endif
 
         // three column
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + column_id, 1, three_columns, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         update_matrix(m_recv + column_id, m_send + column_id, 1, columns, N);
+#if SEND_RECEIVE
+        MPI_Rsend(m_send + column_id, 1, three_columns, partner_rank, 0, MPI_COMM_WORLD);
+#else
         MPI_Send(m_send + column_id, 1, three_columns, partner_rank, 0, MPI_COMM_WORLD);
+#endif
 
         // up_diagonal
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv, 1, up_diagonal, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         update_matrix(m_recv, m_send, N, 1, N + 1);
+#if SEND_RECEIVE
+        MPI_Rsend(m_send, 1, up_diagonal, partner_rank, 0, MPI_COMM_WORLD);
+#else
         MPI_Send(m_send, 1, up_diagonal, partner_rank, 0, MPI_COMM_WORLD);
+#endif
 
         // down_diagonal
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         update_matrix(m_recv, m_send, N, 1, N - 1);
+#if SEND_RECEIVE
+        MPI_Rsend(m_send + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD);
+#else
         MPI_Send(m_send + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD);
+#endif
 
         // reverse
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv + N * N - 1, 1, reverse, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+#if SEND_RECEIVE
+        MPI_Rsend(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD);
+#else
         MPI_Send(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD);
+#endif
 
         // transpose
         memset(m_recv, 0, N * N * sizeof(int));
         MPI_Recv(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+#if SEND_RECEIVE
+        MPI_Rsend(m_recv, N, transpose_column, partner_rank, 0, MPI_COMM_WORLD);
+#else
         MPI_Send(m_recv, N, transpose_column, partner_rank, 0, MPI_COMM_WORLD);
+#endif
     }
 
     MPI_Type_free(&matrix);
