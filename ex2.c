@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define MAX_PRINTABLE_DIM      (16)
-#define N                 (1 << 14) // 16384 x 16384 = 268435456 ~ 2GB in total
+#define N                 8//(1 << 14) // 16384 x 16384 = 268435456 ~ 2GB in total
 #define SEND_RECEIVE            (0)
 
 
@@ -46,6 +46,37 @@ void check_matrix(int * m, int * m_recv,
             if (compute_value(m[index]) != m_recv[index]) {
                 fprintf(stderr, "Error: %s\n", message);
                 MPI_Abort(MPI_COMM_WORLD, 2);
+            }
+        }
+    }
+}
+
+
+void check_reverse(int * m, int * m_recv, size_t n,
+                  const char * message)
+{
+    const size_t dim = n * n;
+
+    for (size_t i = 0; i < n; ++i) {
+        for (size_t j = 0; j < n; ++j) {
+            const size_t index = i * n + j;
+            if (m[index] != m_recv[dim - index - 1]) {
+                fprintf(stderr, "Error: %s\n", message);
+                MPI_Abort(MPI_COMM_WORLD, 3);
+            }
+        }
+    }
+}
+
+
+void check_transpose(int * m, int * m_recv, size_t n,
+                     const char * message)
+{
+    for (size_t i = 0; i < n; ++i) {
+        for (size_t j = 0; j < n; ++j) {
+            if (m[i * n + j] != m_recv[j * n + i]) {
+                fprintf(stderr, "Error: %s\n", message);
+                MPI_Abort(MPI_COMM_WORLD, 4);
             }
         }
     }
@@ -113,6 +144,13 @@ int main(int argc, char * argv[])
     MPI_Type_vector(N, 1, N - 1, MPI_INT, &down_diagonal);
     MPI_Type_commit(&down_diagonal);
 
+    MPI_Datatype reverse;
+    MPI_Type_vector(N * N, 1, -1, MPI_INT, &reverse);
+    MPI_Type_commit(&reverse);
+
+    MPI_Datatype transpose_column;
+    MPI_Type_create_resized(column, 0, sizeof(int), &transpose_column);
+    MPI_Type_commit(&transpose_column);
 
     m_send = (int *)calloc(N * N, sizeof(int));
     m_recv = (int *)calloc(N * N, sizeof(int));
@@ -217,9 +255,39 @@ int main(int argc, char * argv[])
         check_matrix(m_send + N - 1, m_recv + N - 1, N, 1, N - 1, "down_diagonal");
         printf("PingPong down_diagonal completed!\n\n");
 
-    } else {
+        // reverse
+#if SEND_RECEIVE
+        memset(m_recv, 0, N * N * sizeof(int));
+        MPI_Sendrecv(m_send, 1, matrix, partner_rank, 0,
+                     m_recv, 1, matrix, partner_rank, 0,
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-        int * m_recv = (int *)calloc(N * N, sizeof(int));
+#else
+        MPI_Send(m_send, 1, matrix, partner_rank, 0, MPI_COMM_WORLD);
+        memset(m_recv, 0, N * N * sizeof(int));
+        MPI_Recv(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+#endif
+        print_matrix(m_recv, N);
+        check_reverse(m_send, m_recv, N, "reverse");
+        printf("PingPong reverse completed!\n\n");
+
+        // transpose
+#if SEND_RECEIVE
+        memset(m_recv, 0, N * N * sizeof(int));
+        MPI_Sendrecv(m_send, 1, matrix, partner_rank, 0,
+                     m_recv, 1, matrix, partner_rank, 0,
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+#else
+        MPI_Send(m_send, 1, matrix, partner_rank, 0, MPI_COMM_WORLD);
+        memset(m_recv, 0, N * N * sizeof(int));
+        MPI_Recv(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+#endif
+        print_matrix(m_recv, N);
+        check_transpose(m_send, m_recv, N, "transpose");
+        printf("PingPong transpose completed!\n\n");
+
+    } else {
 
         // matrix
         memset(m_recv, 0, N * N * sizeof(int));
@@ -256,6 +324,16 @@ int main(int argc, char * argv[])
         MPI_Recv(m_recv + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         update_matrix(m_recv, m_send, N, 1, N - 1);
         MPI_Send(m_send + N - 1, 1, down_diagonal, partner_rank, 0, MPI_COMM_WORLD);
+
+        // reverse
+        memset(m_recv, 0, N * N * sizeof(int));
+        MPI_Recv(m_recv + N * N - 1, 1, reverse, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Send(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD);
+
+        // transpose
+        memset(m_recv, 0, N * N * sizeof(int));
+        MPI_Recv(m_recv, 1, matrix, partner_rank, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Send(m_recv, N, transpose_column, partner_rank, 0, MPI_COMM_WORLD);
     }
 
     MPI_Type_free(&matrix);
@@ -264,6 +342,8 @@ int main(int argc, char * argv[])
     MPI_Type_free(&three_columns);
     MPI_Type_free(&up_diagonal);
     MPI_Type_free(&down_diagonal);
+    MPI_Type_free(&reverse);
+    MPI_Type_free(&transpose_column);
 
     MPI_Finalize();
 
