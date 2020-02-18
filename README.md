@@ -12,7 +12,7 @@ make farm_skeleton_run
 ```
 The result will be:
 ```bash
-mpicc matrix_mul.c -o matrix_mul
+mpicc -O3 matrix_mul.c -o matrix_mul
 mpirun --oversubscribe -np 9 matrix_mul 9
 C
    4    8   12    4    8   12    4    8   12 
@@ -32,7 +32,7 @@ C
 ### ex2.c
 
 ```bash
-mpicc ex2.c -o ex2 && mpirun -np 2 ex2
+mpicc -O3 ex2.c -o ex2 && mpirun -np 2 ex2
 ```
 
 ### matrix_mul.c
@@ -40,12 +40,12 @@ mpicc ex2.c -o ex2 && mpirun -np 2 ex2
 Number of processors `P` must be a square number and must be a divider of `N` (the size of square matrices computed).
 
 ```bash
-mpicc matrix_mul.c -o matrix_mul && mpirun --oversubscribe -np P matrix_mul N
+mpicc -O3 matrix_mul.c -o matrix_mul && mpirun --oversubscribe -np P matrix_mul N
 ```
 
 ### mandel.cpp
 ```bash
-g++ -std=c++11 mandel.cpp -o mandel -ltbb && ./mandel 1024 1024 -1.1 -0.9 0.15 0.35 8
+g++ -std=c++11 -O3 mandel.cpp -o mandel -ltbb && ./mandel 1024 1024 -1.1 -0.9 0.15 0.35 8
 ```
 
 
